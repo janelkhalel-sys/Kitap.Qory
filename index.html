@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QitapQory</title>
+
+<style>
+* { box-sizing: border-box; margin:0; padding:0; }
+
+body {
+  font-family: "Times New Roman", serif;
+  background:  #f4f6f8;
+}
+
+/* ===== NAV ===== */
+nav{
+  background:#ffffff;
+  padding:12px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+nav button{
+  background:white;
+  color:#2f6fa5;
+  border:none;
+  padding:8px 14px;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:16px;
+}
+nav button:hover{
+  background:#1f4f78;
+  color:white;
+}
+
+/* ===== SECTIONS ===== */
+section { display:none; padding:20px; }
+.active { display:block; }
+
+/* ===== HOME ===== */
+.home-box {
+  max-width:800px;
+  margin:auto;
+  text-align:center;
+  animation:fadeUp 1.2s ease;
+}
+.home-box h1 { font-size:32px; }
+.home-box p { font-size:18px; line-height:1.6; margin-bottom:15px; }
+.home-box img { max-width:100%; height:auto; border-radius:10px; }
+.book-anim{ font-size:50px; animation:float 2s infinite alternate; }
+
+@keyframes float { from{transform:translateY(0);} to{transform:translateY(-15px);} }
+@keyframes fadeUp { from{opacity:0; transform:translateY(40px);} to{opacity:1; transform:translateY(0);} }
+
+/* ===== BOOK CARD ===== */
+.book{
+  background:white;
+  padding:12px;
+  margin-bottom:12px;
+  border-radius:8px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  box-shadow:0 3px 6px rgba(0,0,0,.1);
+}
+.book button{margin:5px 0; cursor:pointer;}
+.star{ font-size:18px; }
+.star.active{ color:gold; }
+.delete{
+  background:#e74c3c; color:white; border:none;
+  padding:5px 8px; border-radius:5px;
+}
+.delete:hover{ background:#c0392b; }
+
+/* ===== PDF ===== */
+#pdfBox{
+  display:none;
+  background:white;
+  padding:15px;
+  position:fixed;
+  top:10px; left:10px;
+  width:calc(100% - 20px);
+  height:calc(100% - 20px);
+  z-index:999;
+  overflow:auto;
+  border-radius:10px;
+}
+#pdfViewer{
+  width:100%;
+  height:80vh;
+  border:1px solid #ccc;
+}
+#pdfBox button{
+  margin-top:10px;
+  padding:8px 12px;
+  background:#2f6fa5;
+  color:white;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 600px){
+  nav { flex-direction: column; }
+  nav button { width:100%; font-size:14px; }
+  .book { flex-direction: column; align-items:flex-start; }
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+  <button onclick="show('home')">Басты бет</button>
+  <button onclick="show('books')">Кітаптар</button>
+  <button onclick="show('kazakh')">Қазақ әдебиеті</button>
+  <button onclick="show('fav')">⭐ Таңдаулылар</button>
+  <button onclick="show('genre')">Жанр бойынша</button>
+</nav>
+
+<section id="home" class="active">
+  <div class="home-box">
+    <div class="book-anim">📚</div>
+    <h1>Қош келдіңіз!</h1>
+    <p>
+      Кітап – ең сенімді жолсерік, әр бетінде жаңа әлем ашылады.<br>
+      Әр оқылған кітап саған жаңа ой береді, жүрегің мен санаңды байытады.<br>
+      Кітапхана – сенің армандарыңа жетелейтін қадамың.
+    </p>
+    <img src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80">
+  </div>
+</section>
+
+<section id="books">
+  <h2>📖 Кітаптар</h2>
+  <input id="search" placeholder="Іздеу" style="padding:6px; width:70%; margin-right:5px;">
+  <button onclick="searchBooks()">Іздеу</button>
+  <button onclick="showAll()">Барлығы</button>
+  <div id="bookList"></div>
+</section>
+
+<section id="kazakh">
+  <h2>📘 Қазақ әдебиеті</h2>
+  <div id="kazakhList"></div>
+</section>
+
+<section id="genre">
+  <h2>🎭 Жанр бойынша</h2>
+
+  <button onclick="filterGenre('Қазақ әдебиеті')">Қазақ әдебиеті</button>
+  <button onclick="filterGenre('Классика')">Классика</button>
+  <button onclick="filterGenre('Фантастика')">Фантастика</button>
+  <button onclick="filterGenre('Балалар')">Балаларға арналған</button>
+  <div id="genreList" style="margin-top:20px;"></div>
+</section>
+
+<section id="fav">
+  <h2>⭐ Таңдаулы кітаптар</h2>
+  <div id="favList"></div>
+</section>
+
+<div id="pdfBox">
+  <iframe id="pdfViewer"></iframe><br>
+  <button onclick="closePDF()">Жабу</button>
+</div>
+
+<script>
+/* ===== DATA ===== */
+if(!localStorage.getItem("books")){
+localStorage.setItem("books",JSON.stringify([
+  {title:"Абай жолы",author:"М.Әуезов",link:"https://predmet.kz/adebiet/кітаптар/Абай жолы.1 кітап.pdf"},
+  {title:"1984",author:"George Orwell",link:"https://www.planetebook.com/free-ebooks/1984.pdf"},
+  {  title: "Атау-кере", author: "Оралхан Бөкей", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D0%90%D1%82%D0%B0%D1%83-%D0%BA%D0%B5%D1%80%D0%B5.pdf" },
+  { title: "Абайдың қара сөздері", author: "Мұхтар Әуезов", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D0%90%D0%B1%D0%B0%D0%B9%D0%B4%D1%8B%D2%A3%20%D2%9B%D0%B0%D1%80%D0%B0%20%D1%81%D3%A9%D0%B7%D0%B4%D0%B5%D1%80%D1%96.pdf" },
+    { title: "Қызыл жебе 1-бөлім", author: "Шерхан Мұртаза", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D2%9A%D1%8B%D0%B7%D1%8B%D0%BB%20%D0%B6%D0%B5%D0%B1%D0%B5.%201%20%D0%BA%D1%96%D1%82%D0%B0%D0%BF%20%D0%A8%D0%B5%D1%80%D1%85%D0%B0%D0%BD%20%D0%9C%D2%B1%D1%80%D1%82%D0%B0%D0%B7%D0%B0.pdf" },
+    { title: "Қызыл жебе 2-бөлім", author: "Шерхан Мұртаза", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D2%9A%D1%8B%D0%B7%D1%8B%D0%BB%20%D0%B6%D0%B5%D0%B1%D0%B5.%202%20%D0%BA%D1%96%D1%82%D0%B0%D0%BF%20%D0%A8%D0%B5%D1%80%D1%85%D0%B0%D0%BD%20%D0%9C%D2%B1%D1%80%D1%82%D0%B0%D0%B7%D0%B0.pdf" },
+    { title: "Қызыл жебе 3-бөлім", author: "Шерхан Мұртаза", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D2%9A%D1%8B%D0%B7%D1%8B%D0%BB%20%D0%B6%D0%B5%D0%B1%D0%B5.%203%20%D0%BA%D1%96%D1%82%D0%B0%D0%BF%20-%20%D0%A8%D0%B5%D1%80%D1%85%D0%B0%D0%BD%20%D0%9C%D2%B1%D1%80%D1%82%D0%B0%D0%B7%D0%B0.pdf" },
+    { title: "Қорғансыздың күні", author: "Мұхтар Әуезов", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D2%9A%D0%BE%D1%80%D2%93%D0%B0%D0%BD%D1%81%D1%8B%D0%B7%D0%B4%D1%8B%D2%A3%20%D0%BA%D2%AF%D0%BD%D1%96.pdf" },
+    { title: "Ай мен Айша", author: "Шерхан Мұртаза", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D0%90%D0%B8%CC%86-%D0%BC%D0%B5%D0%BD-%D0%90%D0%B8%CC%86%D1%88%D0%B0.pdf" },
+    { title: "Бақытсыз Жамал", author: "Міржақып Дулатұлы", link: "https://dev-s.balatili.kz/uploads/books/c440d23f5b0133c2199ed66e3fb01ffd/%D0%91%D0%90%D2%9A%D0%AB%D0%A2%D0%A1%D0%AB%D0%97%20%D0%96%D0%90%D0%9C%D0%90%D0%9B%20-%20%D0%A0%D0%BE%D0%BC%D0%B0%D0%BD.pdf" },
+   {title: "Винни-пух ", author: "Александр Милн, Борис Заходер", link: "https://www.100bestbooks.ru/files/Miln_Vinny_Pooh.pdf"},
+    { title: "Робинзон крузо", author: "Даниэль Дефо", link: "https://dev-s.balatili.kz/uploads/books/05c4db666c550fbc0107ece161c23d53/%D0%A0%D0%BE%D0%B1%D0%B8%D0%BD%D0%B7%D0%BE%D0%BD%20%D0%9A%D1%80%D1%83%D0%B7%D0%BE.pdf" },
+    {title:"Граф Монте-Кристо",author:"Александр Дюма",link:"https://www.100bestbooks.ru/files/Duma_Graf_Monte_Cristo.pdf"},
+    {title:"«Қайдасың,Гауһар?",author:"Дулат Исабеков",link:"https://cbs-saran.gov.kz/wp-content/uploads/2024/01/berdibek_so-pa-baev-ajdasy-_-gau-ar.pdf"},
+    {title:"Еңілік-Кебек",author:"Шәкәрім Құдайбердіұлы",link:"https://auezov.kz/files/765.pdf"},
+    {title:"Оян, қазақ! ",author:"Міржақып Дулатов",link:"https://pps.kaznu.kz/kz/Main/FileShow2/106166/118/4/2/0/"},
+    {title:"Менің атым Қожа",author:"Бердібек Соқпақбаев",link:"https://cbs-saran.gov.kz/wp-content/uploads/2024/01/berdibek_so-pa-baev-meni-_atym_-ozha.pdf"},
+    {title:"Ғашықтың тілі – тілсіз тіл",author:"Абай Құнанбайұлы",link:"https://nabrk.kz/FileStore/dataFiles/f8/ad/107578/content/full.pdf?time=1695236950978&key=5dcceca717d22dcde974af0f32a1e4aa&isPortal=true"},
+    {title:"Қамар сұлу",author:"Сұлтанмахмұт Торайғыров",link:"https://lib.dulaty.kz/rus2/all.doc/top-100/Kazakhskaya_literatura/18_S.Toraigirov.pdf"},
+    {title:"Сто лет одиночества",author:"Габриэль Гарсиа Маркес",link:"http://www.belousenko.com/books/Garcia_Marquez/garcia_marques_100_let.pdf"},
+    {title:"Тошнота",author:"Жан-Поль Сартр",link:"https://www.100bestbooks.ru/files/Sartre_Toshnota.pdf"},
+    {title:"Евгений Онегин",author:"Александр Пушкин",link:"https://imwerden.de/pdf/pushkin_evgenij_onegin.pdf"},
+    {title:"Отцы и дети",author:"Иван Тургенев",link:"https://www.100bestbooks.ru/files/Turgenev_Otcy_i_deti.pdf"},
+    {title:"Мёртвые души",author:"Николай Гоголь",link:"https://imwerden.de/pdf/gogol_mertvye_dushy.pdf"},
+    {title:"Ақбілек",author:"Жүсіпбек Аймауытұлы",link:"https://pushkinlibrary.kz/docs/akbilek_kaz.pdf"},
+    {title:"Мастер и Маргарита",author:"Михаил Булгаков",link:"https://www.100bestbooks.ru/files/Bulgakov_Master_i_Margarita.pdf"},
+    {title:"Пиковая дама",author:"Александр Пушкин",link:"https://imwerden.de/pdf/pushkin_pikovaja_dama.pdf"},
+    {title:"Три мушкетера",author:"Александр Дюма",link:"https://www.100bestbooks.ru/files/Dyuma_Tri_mushketera.pdf"},
+    {title:"Роковые яйца",author:"Михаил Булгаков",link:"https://www.100bestbooks.ru/files/Bulgakov_Rokovye_yaitsa.pdf"},
+    {title:"И дольше века длится день",author:"Чингиз Айтматов",link:"https://b1.culture.ru/c/96019/%D0%B8_%D0%B4%D0%BE%D0%BB%D1%8C%D1%88%D0%B5_%D0%B2%D0%B5%D0%BA%D0%B0_%D0%B4%D0%BB%D0%B8%D1%82%D1%81%D1%8F_%D0%B4%D0%B5%D0%BD%D1%8C.pdf"},
+]));
+}
+
+localStorage.setItem("books", JSON.stringify([
+  {title:"Абай жолы",author:"М.Әуезов",genre:"Қазақ әдебиеті",link:"https://predmet.kz/adebiet/кітаптар/Абай жолы.1 кітап.pdf"},
+  {title:"1984",author:"George Orwell",genre:"Фантастика",link:"https://www.planetebook.com/free-ebooks/1984.pdf"},
+  {  title: "Атау-кере", author: "Оралхан Бөкей",genre:"Қазақ әдебиеті", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D0%90%D1%82%D0%B0%D1%83-%D0%BA%D0%B5%D1%80%D0%B5.pdf" },
+  { title: "Абайдың қара сөздері", author: "Мұхтар Әуезов",genre:"Қазақ әдебиеті", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D0%90%D0%B1%D0%B0%D0%B9%D0%B4%D1%8B%D2%A3%20%D2%9B%D0%B0%D1%80%D0%B0%20%D1%81%D3%A9%D0%B7%D0%B4%D0%B5%D1%80%D1%96.pdf" },
+    { title: "Қызыл жебе 1-бөлім", author: "Шерхан Мұртаза",genre:"Қазақ әдебиеті", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D2%9A%D1%8B%D0%B7%D1%8B%D0%BB%20%D0%B6%D0%B5%D0%B1%D0%B5.%201%20%D0%BA%D1%96%D1%82%D0%B0%D0%BF%20%D0%A8%D0%B5%D1%80%D1%85%D0%B0%D0%BD%20%D0%9C%D2%B1%D1%80%D1%82%D0%B0%D0%B7%D0%B0.pdf" },
+    { title: "Қызыл жебе 2-бөлім", author: "Шерхан Мұртаза",genre:"Қазақ әдебиеті", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D2%9A%D1%8B%D0%B7%D1%8B%D0%BB%20%D0%B6%D0%B5%D0%B1%D0%B5.%202%20%D0%BA%D1%96%D1%82%D0%B0%D0%BF%20%D0%A8%D0%B5%D1%80%D1%85%D0%B0%D0%BD%20%D0%9C%D2%B1%D1%80%D1%82%D0%B0%D0%B7%D0%B0.pdf" },
+    { title: "Қызыл жебе 3-бөлім", author: "Шерхан Мұртаза",genre:"Қазақ әдебиеті",link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D2%9A%D1%8B%D0%B7%D1%8B%D0%BB%20%D0%B6%D0%B5%D0%B1%D0%B5.%203%20%D0%BA%D1%96%D1%82%D0%B0%D0%BF%20-%20%D0%A8%D0%B5%D1%80%D1%85%D0%B0%D0%BD%20%D0%9C%D2%B1%D1%80%D1%82%D0%B0%D0%B7%D0%B0.pdf" },
+    { title: "Қорғансыздың күні", author: "Мұхтар Әуезов",genre:"Қазақ әдебиеті", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D2%9A%D0%BE%D1%80%D2%93%D0%B0%D0%BD%D1%81%D1%8B%D0%B7%D0%B4%D1%8B%D2%A3%20%D0%BA%D2%AF%D0%BD%D1%96.pdf" },
+    { title: "Ай мен Айша", author: "Шерхан Мұртаза",genre:"Қазақ әдебиеті", link: "https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/%D0%90%D0%B8%CC%86-%D0%BC%D0%B5%D0%BD-%D0%90%D0%B8%CC%86%D1%88%D0%B0.pdf" },
+    { title: "Бақытсыз Жамал", author: "Міржақып Дулатұлы",genre:"Балалар", link: "https://dev-s.balatili.kz/uploads/books/c440d23f5b0133c2199ed66e3fb01ffd/%D0%91%D0%90%D2%9A%D0%AB%D0%A2%D0%A1%D0%AB%D0%97%20%D0%96%D0%90%D0%9C%D0%90%D0%9B%20-%20%D0%A0%D0%BE%D0%BC%D0%B0%D0%BD.pdf" },
+    {title: "Винни-пух ", author: "Александр Милн, Борис Заходер",genre:"Балалар", link: "https://www.100bestbooks.ru/files/Miln_Vinny_Pooh.pdf"},
+    { title: "Робинзон крузо", author: "Даниэль Дефо",genre:"Классика", link: "https://dev-s.balatili.kz/uploads/books/05c4db666c550fbc0107ece161c23d53/%D0%A0%D0%BE%D0%B1%D0%B8%D0%BD%D0%B7%D0%BE%D0%BD%20%D0%9A%D1%80%D1%83%D0%B7%D0%BE.pdf" },
+    {title:"Граф Монте-Кристо",author:"Александр Дюма",genre:"Классика",link:"https://www.100bestbooks.ru/files/Duma_Graf_Monte_Cristo.pdf"},
+    {title:"«Қайдасың,Гауһар?",author:"Дулат Исабеков",genre:"Қазақ әдебиеті",link:"https://cbs-saran.gov.kz/wp-content/uploads/2024/01/berdibek_so-pa-baev-ajdasy-_-gau-ar.pdf"},
+    {title:"Еңілік-Кебек",author:"Шәкәрім Құдайбердіұлы",genre:"Классика",link:"https://auezov.kz/files/765.pdf"},
+    {title:"Оян, қазақ! ",author:"Міржақып Дулатов",genre:"Қазақ әдебиеті",link:"https://pps.kaznu.kz/kz/Main/FileShow2/106166/118/4/2/0/"},
+    {title:"Менің атым Қожа",author:"Бердібек Соқпақбаев",genre:"Балалар",link:"https://cbs-saran.gov.kz/wp-content/uploads/2024/01/berdibek_so-pa-baev-meni-_atym_-ozha.pdf"},
+    {title:"Ғашықтың тілі – тілсіз тіл",author:"Абай Құнанбайұлы",genre:"Классика",link:"https://nabrk.kz/FileStore/dataFiles/f8/ad/107578/content/full.pdf?time=1695236950978&key=5dcceca717d22dcde974af0f32a1e4aa&isPortal=true"},
+    {title:"Қамар сұлу",author:"Сұлтанмахмұт Торайғыров",genre:"Классика",link:"https://lib.dulaty.kz/rus2/all.doc/top-100/Kazakhskaya_literatura/18_S.Toraigirov.pdf"},
+    {title:"Сто лет одиночества",author:"Габриэль Гарсиа Маркес",genre:"Фантастика",link:"http://www.belousenko.com/books/Garcia_Marquez/garcia_marques_100_let.pdf"},
+    {title:"Тошнота",author:"Жан-Поль Сартр",genre:"Классика",link:"https://www.100bestbooks.ru/files/Sartre_Toshnota.pdf"},
+    {title:"Евгений Онегин",author:"Александр Пушкин",genre:"Классика",link:"https://imwerden.de/pdf/pushkin_evgenij_onegin.pdf"},
+    {title:"Отцы и дети",author:"Иван Тургенев",genre:"Классика",link:"https://www.100bestbooks.ru/files/Turgenev_Otcy_i_deti.pdf"},
+    {title:"Мёртвые души",author:"Николай Гоголь",genre:"Фантастика", link:"https://imwerden.de/pdf/gogol_mertvye_dushy.pdf"},
+    {title:"Ақбілек",author:"Жүсіпбек Аймауытұлы",genre:"Қазақ әдебиеті",link:"https://pushkinlibrary.kz/docs/akbilek_kaz.pdf"},
+    {title:"Мастер и Маргарита",author:"Михаил Булгаков",genre:"Классика",link:"https://www.100bestbooks.ru/files/Bulgakov_Master_i_Margarita.pdf"},
+    {title:"Жабайы алма",author:"Ертегі",genre:"Балалар",link:"https://dev-s.balatili.kz/uploads/books/211fa73a4fd10e43ed9217751da11af4/%D0%96%D0%B0%D0%B1%D0%B0%D0%B9%D1%8B%20%D0%B0%D0%BB%D0%BC%D0%B0.pdf"},
+    {title:"Қазақ ертегілері",author:"Ертегі",genre:"Балалар",link:"https://www.almatykitap.kz/upload/files/71249_567436_09.pdf"},
+    {title:"Пиковая дама",author:"Александр Пушкин",genre:"Фантастика",link:"https://imwerden.de/pdf/pushkin_pikovaja_dama.pdf"},
+    {title:"Три мушкетера",author:"Александр Дюма",genre:"Фантастика",link:"https://www.100bestbooks.ru/files/Dyuma_Tri_mushketera.pdf"},
+    {title:"Динозавры",author:"Энциклопедия",genre:"Балалар",link:"https://static-ru.insales.ru/files/1/500/13124084/original/%D0%A1%D1%82%D1%80%D0%B0%D0%BD%D0%B8%D1%86%D1%8B_%D0%B8%D0%B7_%D0%94%D0%B8%D0%BD%D0%BE%D0%B7%D0%B0%D0%B2%D1%80%D1%8B.pdf"},
+    {title:"Роковые яйца",author:"Михаил Булгаков",genre:"Фантастика", link:"https://www.100bestbooks.ru/files/Bulgakov_Rokovye_yaitsa.pdf"},
+    {title:"И дольше века длится день",author:"Чингиз Айтматов",genre:"Фантастика", link:"https://b1.culture.ru/c/96019/%D0%B8_%D0%B4%D0%BE%D0%BB%D1%8C%D1%88%D0%B5_%D0%B2%D0%B5%D0%BA%D0%B0_%D0%B4%D0%BB%D0%B8%D1%82%D1%81%D1%8F_%D0%B4%D0%B5%D0%BD%D1%8C.pdf"},
+]));
+
+const kazakhBooks=[
+  {title:"6-сынып Қазақ әдебиеті",link:"https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/6%20%D1%81%D1%8B%D0%BD%D1%8B%D0%BF.pdf"},
+  {title:"7-сынып Қазақ әдебиеті",link:"https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/7%20%D1%81%D1%8B%D0%BD%D1%8B%D0%BF.pdf"},
+  {title:"8-сынып Қазақ әдебиеті",link:"https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/8%20%D1%81%D1%8B%D0%BD%D1%8B%D0%BF.pdf"},
+  {title:"9-сынып Қазақ әдебиеті",link:"https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/9%20%D1%81%D1%8B%D0%BD%D1%8B%D0%BF.pdf"},
+  {title:"10-сынып Қазақ әдебиеті",link:"https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/10%20%D1%81%D1%8B%D0%BD%D1%8B%D0%BF.pdf"},
+  {title:"11-сынып Қазақ әдебиеті",link:"https://predmet.kz/adebiet/%D0%BA%D1%96%D1%82%D0%B0%D0%BF%D1%82%D0%B0%D1%80/11%D1%81%D1%8B%D0%BD%D1%8B%D0%BF.pdf"}
+];
+
+/* ===== NAV ===== */
+function show(id){
+  document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  if(id==="books") showBooks();
+  if(id==="kazakh") showKazakh();
+  if(id==="fav") showFav();
+}
+
+/* ===== BOOKS ===== */
+function showBooks(){
+  const box=document.getElementById("bookList");
+  box.innerHTML="";
+  const books=JSON.parse(localStorage.getItem("books")) || [];
+  const fav=JSON.parse(localStorage.getItem("fav"))||[];
+
+  books.forEach(b=>{
+    const active = fav.some(f=>f.title===b.title) ? "active" : "";
+    box.innerHTML+=`
+      <div class="book">
+        <span><b>${b.title}</b> — ${b.author || ""}</span>
+        <span>
+          <button onclick="openPDF('${b.link}')">Оқу</button>
+          <button class="star ${active}" onclick='toggleFav(${JSON.stringify(b)})'>⭐</button>
+        </span>
+      </div>`;
+  });
+}
+
+/* ===== SEARCH ===== */
+function searchBooks(){
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const box = document.getElementById("bookList");
+  const books = JSON.parse(localStorage.getItem("books")) || [];
+  box.innerHTML="";
+
+  if(q===""){ showBooks(); return; }
+
+  books.filter(b =>
+    b.title.toLowerCase().includes(q) || (b.author && b.author.toLowerCase().includes(q))
+  ).forEach(b=>{
+    box.innerHTML+=`
+      <div class="book">
+        <span><b>${b.title}</b>${b.author ? " — "+b.author : ""}</span>
+        <button onclick="openPDF('${b.link}')">Оқу</button>
+      </div>`;
+  });
+}
+
+/* ===== SHOW ALL ===== */
+function showAll(){ document.getElementById("search").value=""; showBooks(); }
+
+/* ===== KAZAKH ===== */
+function showKazakh(){
+  const box=document.getElementById("kazakhList");
+  box.innerHTML="";
+  kazakhBooks.forEach(b=>{
+    box.innerHTML+=`<div class="book"><span>${b.title}</span><button onclick="openPDF('${b.link}')">Оқу</button></div>`;
+  });
+}
+
+/* ===== FAVORITES ===== */
+function toggleFav(book){
+  let fav=JSON.parse(localStorage.getItem("fav"))||[];
+  const i=fav.findIndex(b=>b.title===book.title);
+  i===-1?fav.push(book):fav.splice(i,1);
+  localStorage.setItem("fav",JSON.stringify(fav));
+  showBooks();
+}
+function showFav(){
+  const box=document.getElementById("favList");
+  box.innerHTML="";
+  const fav=JSON.parse(localStorage.getItem("fav"))||[];
+  if(!fav.length){box.innerHTML="Таңдаулы жоқ"; return;}
+  fav.forEach(b=>{
+    box.innerHTML+=`
+      <div class="book">
+        <span>${b.title}</span>
+        <button onclick="openPDF('${b.link}')">Оқу</button>
+        <button class="delete" onclick="removeFav('${b.title}')">❌</button>
+      </div>`;
+  });
+}
+function removeFav(title){
+  if(!confirm("Өшіресіз бе?")) return;
+  let fav=JSON.parse(localStorage.getItem("fav"))||[];
+  fav=fav.filter(b=>b.title!==title);
+  localStorage.setItem("fav",JSON.stringify(fav));
+  showFav();
+}
+
+/* ===== PDF ===== */
+function openPDF(link){
+  pdfViewer.src = `https://docs.google.com/gview?url=${encodeURIComponent(link)}&embedded=true`;
+  pdfBox.style.display="block";
+}
+function closePDF(){
+  pdfViewer.src="";
+  pdfBox.style.display="none";
+}
+
+/* ===== GENRE FILTER ===== */
+function filterGenre(g){
+  const box = document.getElementById("genreList");
+  const books = JSON.parse(localStorage.getItem("books")) || [];
+  box.innerHTML = "";
+
+  const filtered = books.filter(b => b.genre === g);
+
+  if(filtered.length === 0){
+    box.innerHTML = "<p>Бұл жанрда кітап жоқ</p>";
+    return;
+  }
+
+  filtered.forEach(b => {
+    box.innerHTML += `
+      <div class="book">
+        <span><b>${b.title}</b> — ${b.author || ""}</span>
+        <span>
+          <button onclick="openPDF('${b.link}')">Оқу</button>
+        </span>
+      </div>
+    `;
+  });
+
+  show("genre");
+}
+
+// Бастапқыда жанрлар бөлімінде барлық кітаптарды көрсету
+filterGenre("Қазақ әдебиеті");
+</script>
+
+</body>
+</html>
